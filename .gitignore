@@ -9,3 +9,6 @@ dist-ssr
 .DS_Store
 Thumbs.db
 scripts/.cache
+
+.vercel
+.env*

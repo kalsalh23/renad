@@ -28,7 +28,7 @@ export function RentBuySection({ mode, dresses, loading }: { mode: 'rent' | 'sal
             </h2>
             <p className="mt-2 max-w-xl text-sm leading-7 text-smoke">
               {isRent
-                ? 'أطلالتي اليوم الأجمل بسعر مناسب — فساتين مصممة بإتقان متاحة للإيجار.'
+                ? 'إطلالة يومكِ الأجمل بسعر مناسب — فساتين مصممة بإتقان متاحة للإيجار.'
                 : 'قطع استثنائية تبقى معكِ ذكرى لا تُنسى — متاحة للشراء بجودة عالية.'}
             </p>
           </div>
