@@ -1,25 +1,21 @@
-import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowRight, CalendarHeart, Heart, MessageCircle, Rotate3d, Ruler, Truck, ShieldCheck } from 'lucide-react'
+import { ArrowRight, CalendarHeart, Heart, MessageCircle, Ruler, Truck, ShieldCheck, Images } from 'lucide-react'
 import { useDressBySlug, useRelatedDresses } from '@/hooks/useData'
 import { PageLoader, SectionHeading } from '@/components/ui/Common'
 import { Gallery } from '@/components/viewer/Gallery'
-import { Viewer360 } from '@/components/viewer/Viewer360'
 import { DressCard } from '@/components/dresses/DressCard'
 import { useSettings } from '@/context/SettingsContext'
 import { useFavorites } from '@/context/FavoritesContext'
 import { AVAILABILITY_META, DRESS_STATUS_META } from '@/lib/constants'
-import { cn, effectivePrices, fmtPrice, waLink } from '@/lib/utils'
+import { cn, waLink } from '@/lib/utils'
 import { useSEO } from '@/hooks/useSEO'
-import type { BusinessSettings } from '@/lib/types'
 
 export default function DressDetailsPage() {
   const { slug } = useParams<{ slug: string }>()
-  const { dress, images, frames, loading, notFound } = useDressBySlug(slug)
+  const { dress, images, loading, notFound } = useDressBySlug(slug)
   const related = useRelatedDresses(dress)
   const { settings } = useSettings()
   const { isFavorite, toggleFavorite } = useFavorites()
-  const [tab, setTab] = useState<'360' | 'images'>('360')
 
   useSEO({
     title: dress ? `فستان ${dress.code}` : undefined,
@@ -33,13 +29,9 @@ export default function DressDetailsPage() {
   if (loading) return <PageLoader />
   if (notFound || !dress) return <Navigate to="/dresses" replace />
 
-  const prices = effectivePrices(dress)
   const statusMeta = DRESS_STATUS_META[dress.status]
   const bookable = dress.status === 'available' || dress.status === 'reserved'
-  const has360 = (dress.display_mode === '360' || dress.display_mode === 'both') && frames.length > 1
-  const hasImages = images.length > 0
   const fav = isFavorite(dress.id)
-  const viewerMode = has360 && hasImages ? tab : has360 ? '360' : 'images'
 
   const structuredData = {
     '@context': 'https://schema.org',
@@ -49,11 +41,6 @@ export default function DressDetailsPage() {
     description: dress.description ?? undefined,
     sku: dress.code,
     brand: { '@type': 'Brand', name: 'RENAD' },
-    offers: prices.sale !== undefined
-      ? { '@type': 'Offer', price: prices.sale, priceCurrency: 'USD', availability: dress.status === 'available' ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock' }
-      : prices.rent !== undefined
-        ? { '@type': 'Offer', price: prices.rent, priceCurrency: 'USD', availability: dress.status === 'available' ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock' }
-        : undefined,
   }
 
   return (
@@ -74,34 +61,14 @@ export default function DressDetailsPage() {
       </nav>
 
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
-        {/* العارض */}
+        {/* معرض الصور — نفس الفستان بعدة زوايا */}
         <div>
-          {has360 && hasImages ? (
-            <div>
-              <div className="mb-4 flex justify-center gap-1 border border-champagne-light bg-cream/60 p-1">
-                {([['360', '360°'], ['images', 'الصور']] as const).map(([v, l]) => (
-                  <button
-                    key={v}
-                    onClick={() => setTab(v)}
-                    className={cn(
-                      'flex-1 px-6 py-2.5 text-sm font-bold transition-all',
-                      viewerMode === v ? 'bg-ink text-ivory' : 'text-smoke hover:text-ink',
-                    )}
-                  >
-                    {l}
-                  </button>
-                ))}
-              </div>
-              {viewerMode === '360' ? (
-                <Viewer360 frames={frames} className="aspect-[3/4] w-full border border-champagne-light" />
-              ) : (
-                <Gallery images={images} alt={`فستان ${dress.code}`} />
-              )}
-            </div>
-          ) : viewerMode === '360' ? (
-            <Viewer360 frames={frames} className="aspect-[3/4] w-full border border-champagne-light" />
-          ) : (
+          {images.length > 0 ? (
             <Gallery images={images} alt={`فستان ${dress.code}`} />
+          ) : (
+            <div className="flex aspect-[3/4] w-full items-center justify-center bg-cream text-beige">
+              <Images className="h-10 w-10" />
+            </div>
           )}
         </div>
 
@@ -134,30 +101,13 @@ export default function DressDetailsPage() {
             <p className="mt-6 text-sm leading-8 text-smoke">{dress.description}</p>
           )}
 
-          {/* الأسعار */}
+          {/* السعر — عند الاستفسار فقط */}
           <div className="mt-8 border-y border-champagne py-6">
-            {prices.sale !== undefined ? (
-              <div className="flex items-baseline gap-3">
-                <span className="text-xs text-smoke">سعر الشراء:</span>
-                <span className="font-display text-3xl text-ink">{fmtPrice(prices.sale)}</span>
-                {!!prices.discountPercent && (
-                  <span className="text-sm text-smoke line-through">{fmtPrice(prices.saleOriginal)}</span>
-                )}
-              </div>
-            ) : null}
-            {prices.rent !== undefined && (
-              <div className={cn('flex items-baseline gap-3', prices.sale !== undefined && 'mt-3')}>
-                <span className="text-xs text-smoke">سعر الإيجار:</span>
-                <span className="font-display text-2xl text-gold-dark">{fmtPrice(prices.rent)}</span>
-                <span className="text-xs text-smoke">/ لمدة الحفل</span>
-              </div>
-            )}
-            {prices.sale === undefined && prices.rent === undefined && (
-              <span className="text-sm text-smoke">تواصلي معنا لمعرفة السعر</span>
-            )}
-            {!!prices.discountPercent && (
-              <span className="status-pill mt-4 bg-gold text-white">عرض خاص — خصم {prices.discountPercent}%</span>
-            )}
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-smoke">السعر:</span>
+              <span className="font-latin text-3xl tracking-[0.5em] text-gold-dark">***</span>
+            </div>
+            <p className="mt-2 text-xs text-beige">الأسعار تُعرض عند الاستفسار أو زيارة المعرض</p>
           </div>
 
           {/* المواصفات */}
@@ -185,10 +135,10 @@ export default function DressDetailsPage() {
               </div>
             )}
             <div>
-              <dt className="text-xs text-beige">نوع العرض</dt>
+              <dt className="text-xs text-beige">العرض</dt>
               <dd className="mt-1 flex items-center gap-1.5 text-ink">
-                {has360 && <Rotate3d className="h-4 w-4 text-gold-dark" />}
-                {has360 && hasImages ? 'صور + 360°' : has360 ? '360°' : 'صور'}
+                <Images className="h-4 w-4 text-gold-dark" />
+                {images.length > 0 ? `صور من ${images.length} زوايا` : 'صور'}
               </dd>
             </div>
           </dl>

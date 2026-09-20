@@ -2,12 +2,11 @@ import { Link } from 'react-router-dom'
 import { Eye, Heart } from 'lucide-react'
 import type { Dress } from '@/lib/types'
 import { AVAILABILITY_META, DRESS_STATUS_META } from '@/lib/constants'
-import { cn, effectivePrices, fmtPrice } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { useFavorites } from '@/context/FavoritesContext'
 
 export function DressCard({ dress, priority = false }: { dress: Dress; priority?: boolean }) {
   const { isFavorite, toggleFavorite } = useFavorites()
-  const prices = effectivePrices(dress)
   const fav = isFavorite(dress.id)
   const unavailable = dress.status === 'sold' || dress.status === 'unavailable'
   const statusMeta = DRESS_STATUS_META[dress.status]
@@ -38,14 +37,11 @@ export function DressCard({ dress, priority = false }: { dress: Dress; priority?
           )}
 
           {/* الشارات */}
-          <div className="absolute start-3 top-3 flex flex-col gap-1.5">
-            {dress.status !== 'available' && (
+          {dress.status !== 'available' && (
+            <div className="absolute start-3 top-3">
               <span className={cn('status-pill backdrop-blur', statusMeta.pill, 'bg-opacity-90')}>{statusMeta.label}</span>
-            )}
-            {!!prices.discountPercent && !unavailable && (
-              <span className="status-pill bg-gold text-white">خصم {prices.discountPercent}%</span>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* طبقة التحويم على سطح المكتب */}
           <div className="absolute inset-0 hidden items-end justify-center bg-gradient-to-t from-ink/50 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100 lg:flex">
@@ -71,30 +67,18 @@ export function DressCard({ dress, priority = false }: { dress: Dress; priority?
         aria-pressed={fav}
       >
         <Heart
-          className={cn('h-4.5 w-4.5 h-[18px] w-[18px] transition-colors', fav ? 'fill-gold text-gold animate-pop' : 'text-ink/60')}
+          className={cn('h-[18px] w-[18px] transition-colors', fav ? 'fill-gold text-gold animate-pop' : 'text-ink/60')}
         />
       </button>
 
-      {/* المعلومات */}
+      {/* المعلومات — السعر عند الاستفسار فقط */}
       <div className="pt-3.5 text-center">
         <p className="font-latin text-[11px] tracking-[0.3em] text-gold-dark">{dress.code}</p>
         <h3 className="mt-1 text-sm font-bold text-ink">{dress.category?.name_ar ?? dress.name_ar}</h3>
         <p className="mt-0.5 text-[11px] text-smoke">{AVAILABILITY_META[dress.availability]}</p>
-        <div className="mt-1.5 flex items-center justify-center gap-3 text-sm">
-          {prices.sale !== undefined && (
-            <span className="font-bold text-ink">
-              {fmtPrice(prices.sale)}
-              {prices.discountPercent && (
-                <span className="ms-1.5 text-xs font-normal text-smoke line-through">{fmtPrice(prices.saleOriginal)}</span>
-              )}
-            </span>
-          )}
-          {prices.rent !== undefined && (
-            <span className="text-xs text-smoke">
-              الإيجار <span className="font-bold text-gold-dark">{fmtPrice(prices.rent)}</span>
-            </span>
-          )}
-        </div>
+        <p className="mt-1.5 font-latin text-sm tracking-[0.45em] text-gold-dark/80" title="السعر عند الاستفسار">
+          ***
+        </p>
       </div>
     </article>
   )

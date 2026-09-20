@@ -38,10 +38,3 @@ export async function uploadImage(
   const { data } = supabase.storage.from(bucket).getPublicUrl(path)
   return { ok: true, url: data.publicUrl }
 }
-
-/** ترتيب طبيعي لأسماء إطارات الـ360 (img2 قبل img10) */
-export function sortFrameFiles(files: File[]): File[] {
-  return [...files].sort((a, b) =>
-    a.name.localeCompare(b.name, 'en', { numeric: true, sensitivity: 'base' }),
-  )
-}

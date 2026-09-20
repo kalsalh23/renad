@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowRight, ImagePlus, Loader2, Rotate3d, Trash2 } from 'lucide-react'
+import { ArrowRight, ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import type { Category, DisplayMode, Dress, DressStatus, Availability } from '@/lib/types'
-import { AVAILABILITY_META, DRESS_STATUS_META, DISPLAY_MODE_META, MIN_FRAMES_FOR_360 } from '@/lib/constants'
+import type { Category, Dress, DressStatus, Availability } from '@/lib/types'
+import { AVAILABILITY_META, DRESS_STATUS_META } from '@/lib/constants'
 import { cn, slugifyCode } from '@/lib/utils'
-import { sortFrameFiles, uploadImage, validateImageFile } from '@/lib/upload'
+import { uploadImage, validateImageFile } from '@/lib/upload'
 import { useToast } from '@/context/ToastContext'
 import { useSEO } from '@/hooks/useSEO'
 
@@ -23,7 +23,6 @@ interface FormState {
   rent_price: string
   availability: Availability
   status: DressStatus
-  display_mode: DisplayMode
   is_featured: boolean
   discount_percent: string
   sort_order: string
@@ -45,7 +44,6 @@ const EMPTY: FormState = {
   rent_price: '',
   availability: 'both',
   status: 'available',
-  display_mode: 'images',
   is_featured: false,
   discount_percent: '0',
   sort_order: '0',
@@ -63,12 +61,9 @@ export default function DressFormPage() {
   const [form, setForm] = useState<FormState>(EMPTY)
   const [categories, setCategories] = useState<Category[]>([])
   const [images, setImages] = useState<{ id?: string; url: string }[]>([])
-  const [frames, setFrames] = useState<{ id?: string; url: string }[]>([])
   const [coverPreview, setCoverPreview] = useState('')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(isEdit)
-  const [uploadingFrames, setUploadingFrames] = useState(false)
-  const framesInputRef = useRef<HTMLInputElement>(null)
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
@@ -80,10 +75,9 @@ export default function DressFormPage() {
   useEffect(() => {
     if (!id) return
     ;(async () => {
-      const [{ data: dress }, imgRes, frameRes] = await Promise.all([
+      const [{ data: dress }, imgRes] = await Promise.all([
         supabase.from('dresses').select('*').eq('id', id).maybeSingle(),
         supabase.from('dress_images').select('*').eq('dress_id', id).order('sort_order'),
-        supabase.from('dress_360_frames').select('*').eq('dress_id', id).order('frame_index'),
       ])
       if (dress) {
         const d = dress as Dress
@@ -101,7 +95,6 @@ export default function DressFormPage() {
           rent_price: d.rent_price != null ? String(d.rent_price) : '',
           availability: d.availability,
           status: d.status,
-          display_mode: d.display_mode,
           is_featured: d.is_featured,
           discount_percent: String(d.discount_percent ?? 0),
           sort_order: String(d.sort_order ?? 0),
@@ -111,7 +104,6 @@ export default function DressFormPage() {
         setCoverPreview(d.cover_image ?? '')
       }
       setImages((imgRes.data as { id: string; url: string }[]) ?? [])
-      setFrames((frameRes.data as { id: string; url: string }[]) ?? [])
       setLoading(false)
     })()
   }, [id])
@@ -144,33 +136,6 @@ export default function DressFormPage() {
     setBusy(false)
   }
 
-  /* ---------- رفع إطارات 360 ---------- */
-  const onFramesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = sortFrameFiles(Array.from(e.target.files ?? []))
-    e.target.value = ''
-    if (!files.length || !id) return toast('error', 'احفظ الفستان أولًا قبل رفع الإطارات')
-    setUploadingFrames(true)
-    let index = frames.length
-    for (const file of files) {
-      const res = await uploadImage(file, 'dress-360', id)
-      if (res.ok) {
-        setFrames((prev) => [...prev, { url: res.url!, id: `tmp-${index}` }])
-        index += 1
-      } else {
-        toast('error', res.error ?? '')
-        break
-      }
-    }
-    setUploadingFrames(false)
-  }
-
-  const removeFrame = async (frame: { id?: string; url: string }, i: number) => {
-    setFrames((prev) => prev.filter((_, idx) => idx !== i))
-    if (frame.id && !frame.id.startsWith('tmp-')) {
-      await supabase.from('dress_360_frames').delete().eq('id', frame.id)
-    }
-  }
-
   const removeImage = async (img: { id?: string; url: string }) => {
     setImages((prev) => prev.filter((x) => x !== img))
     if (img.id) await supabase.from('dress_images').delete().eq('id', img.id)
@@ -196,7 +161,7 @@ export default function DressFormPage() {
       rent_price: form.rent_price ? Number(form.rent_price) : null,
       availability: form.availability,
       status: form.status,
-      display_mode: form.display_mode,
+      display_mode: 'images' as const,
       is_featured: form.is_featured,
       discount_percent: Math.min(Math.max(Number(form.discount_percent) || 0, 0), 90),
       sort_order: Number(form.sort_order) || 0,
@@ -221,7 +186,7 @@ export default function DressFormPage() {
       dressId = data!.id as string
     }
 
-    // مزامنة صور المعرض الجديدة (URLs المؤقتة المرفوعة تحت مجلد مؤقت)
+    // مزامنة صور المعرض الجديدة
     if (dressId) {
       const newImages = images.filter((i) => !i.id)
       if (newImages.length) {
@@ -229,22 +194,14 @@ export default function DressFormPage() {
           newImages.map((i, idx) => ({ dress_id: dressId, url: i.url, sort_order: images.indexOf(i) + idx })),
         )
       }
-      const newFrames = frames.filter((f) => !f.id || f.id.startsWith('tmp-'))
-      if (newFrames.length) {
-        await supabase.from('dress_360_frames').insert(
-          newFrames.map((f, idx) => ({ dress_id: dressId, url: f.url, frame_index: frames.indexOf(f) + idx })),
-        )
-      }
     }
 
     setBusy(false)
-    toast('success', isEdit ? 'تم حفظ التعديلات' : 'تمت إضافة الفستان — يمكنكِ الآن رفع الصور والإطارات')
+    toast('success', isEdit ? 'تم حفظ التعديلات' : 'تمت إضافة الفستان — يمكنكِ الآن رفع صور الزوايا')
     navigate(`/admin/dresses/${dressId}`, { replace: true })
   }
 
   if (loading) return <p className="py-16 text-center text-sm text-beige">جارٍ التحميل...</p>
-
-  const needFrames = form.display_mode === '360' || form.display_mode === 'both'
 
   return (
     <form onSubmit={submit} className="mx-auto max-w-3xl space-y-8">
@@ -382,12 +339,12 @@ export default function DressFormPage() {
           </div>
         </div>
 
-        {/* صور المعرض */}
+        {/* صور المعرض — زوايا متعددة لنفس الفستان */}
         <div>
-          <label className="label">صور المعرض {id ? '' : '(بعد الحفظ الأول)'}</label>
+          <label className="label">صور المعرض — زوايا متعددة لنفس الفستان {id ? '' : '(بعد الحفظ الأول)'}</label>
           <div className="flex flex-wrap gap-3">
             {images.map((img, i) => (
-              <div key={img.id ?? img.url} className="group relative h-24 w-18 w-[72px] overflow-hidden border border-champagne-light">
+              <div key={img.id ?? img.url} className="group relative h-24 w-[72px] overflow-hidden border border-champagne-light">
                 <img src={img.url} alt="" className="h-full w-full object-cover" />
                 <button type="button" onClick={() => removeImage(img)}
                   className="absolute inset-0 flex items-center justify-center bg-ink/60 text-white opacity-0 transition-opacity group-hover:opacity-100" aria-label="حذف الصورة">
@@ -404,63 +361,11 @@ export default function DressFormPage() {
               </label>
             )}
           </div>
-          <p className="mt-2 text-[11px] text-beige">أمام / خلف / جانب / تفاصيل التطريز — JPG, PNG, WebP حتى 8MB</p>
+          <p className="mt-2 text-[11px] leading-5 text-beige">
+            أضيفي صورًا لنفس الفستان من زوايا مختلفة بالترتيب: الأمام، الجانب، الخلف، تفاصيل القماش —
+            بدون صور للعروسات، فقط الفستان. JPG, PNG, WebP حتى 8MB.
+          </p>
         </div>
-      </section>
-
-      {/* 360 */}
-      <section className="card space-y-5 p-6">
-        <h2 className="flex items-center gap-2 font-display text-xl">
-          <Rotate3d className="h-5 w-5 text-gold-dark" />
-          نوع العرض وإطارات 360°
-        </h2>
-
-        <div className="flex flex-wrap gap-2">
-          {(Object.entries(DISPLAY_MODE_META) as [DisplayMode, string][]).map(([k, v]) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => set('display_mode', k)}
-              className={cn('chip', form.display_mode === k && 'chip-active')}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-
-        {needFrames && (
-          <div>
-            <label className="label">إطارات 360° {id ? '' : '(بعد الحفظ الأول)'}</label>
-            <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
-              {frames.map((f, i) => (
-                <div key={f.id ?? f.url} className="group relative aspect-[3/4] overflow-hidden border border-champagne-light bg-cream">
-                  <img src={f.url} alt="" className="h-full w-full object-cover" />
-                  <span className="absolute start-1 top-1 rounded-sm bg-ink/60 px-1 text-[9px] text-white">{i + 1}</span>
-                  <button type="button" onClick={() => removeFrame(f, i)}
-                    className="absolute inset-0 flex items-center justify-center bg-ink/60 text-white opacity-0 transition-opacity group-hover:opacity-100" aria-label="حذف الإطار">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-              {id && (
-                <button
-                  type="button"
-                  onClick={() => framesInputRef.current?.click()}
-                  className="flex aspect-[3/4] flex-col items-center justify-center gap-1 border border-dashed border-champagne text-beige transition-colors hover:border-gold hover:text-gold-dark"
-                >
-                  {uploadingFrames ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}
-                  <span className="text-[9px]">رفع إطارات</span>
-                </button>
-              )}
-            </div>
-            <input ref={framesInputRef} type="file" multiple accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onFramesChange} />
-            <p className="mt-2 text-[11px] leading-5 text-beige">
-              اختاري كل الإطارات دفعة واحدة — تُرتّب تلقائيًا حسب أسماء الملفات (01.webp, 02.webp...).
-              الحد الأدنى {MIN_FRAMES_FOR_360} إطارًا، ويُفضّل 24–36 إطارًا بصيغة WebP.
-              {frames.length >= MIN_FRAMES_FOR_360 ? ` ✓ لديكِ ${frames.length} إطارًا` : ` — لديكِ ${frames.length}`}
-            </p>
-          </div>
-        )}
       </section>
 
       <div className="flex justify-end gap-3 pb-8">

@@ -9,6 +9,4 @@ dist-ssr
 .DS_Store
 Thumbs.db
 scripts/.cache
-
-.vercel
-.env*
+scripts/.cache-ai

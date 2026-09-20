@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { Appointment, BusinessSettings, Category, Dress, Dress360Frame, DressImage, Notification } from '@/lib/types'
+import type { Appointment, BusinessSettings, Category, Dress, DressImage, Notification } from '@/lib/types'
 
 /* ---------------- التصنيفات ---------------- */
 export function useCategories() {
@@ -47,7 +47,6 @@ export function useDresses(options: { featuredOnly?: boolean; activeOnly?: boole
 export function useDressBySlug(slug: string | undefined) {
   const [dress, setDress] = useState<Dress | null>(null)
   const [images, setImages] = useState<DressImage[]>([])
-  const [frames, setFrames] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
 
@@ -68,21 +67,17 @@ export function useDressBySlug(slug: string | undefined) {
       }
       const dressRow = data as unknown as Dress
       setDress(dressRow)
-      const [imgRes, frameRes] = await Promise.all([
-        supabase.from('dress_images').select('*').eq('dress_id', dressRow.id).order('sort_order'),
-        supabase
-          .from('dress_360_frames')
-          .select('url, frame_index')
-          .eq('dress_id', dressRow.id)
-          .order('frame_index'),
-      ])
+      const imgRes = await supabase
+        .from('dress_images')
+        .select('*')
+        .eq('dress_id', dressRow.id)
+        .order('sort_order')
       setImages((imgRes.data as DressImage[]) ?? [])
-      setFrames(((frameRes.data as Dress360Frame[]) ?? []).map((f) => f.url))
       setLoading(false)
     })()
   }, [slug])
 
-  return { dress, images, frames, loading, notFound }
+  return { dress, images, loading, notFound }
 }
 
 export function useRelatedDresses(dress: Dress | null, count = 4) {

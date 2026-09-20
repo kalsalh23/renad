@@ -1,7 +1,7 @@
 import { Hero } from '@/components/home/Hero'
 import { CategoriesSection } from '@/components/home/CategoriesSection'
 import { FeaturedSection } from '@/components/home/FeaturedSection'
-import { Experience360 } from '@/components/home/Experience360'
+import { AnglesShowcase } from '@/components/home/AnglesShowcase'
 import { RentBuySection } from '@/components/home/RentBuySection'
 import { WhyRenad, BookingCta } from '@/components/home/WhyRenad'
 import { ShowroomSection, InstagramSection } from '@/components/home/ShowroomSection'
@@ -24,7 +24,7 @@ export default function HomePage() {
       <Hero />
       <CategoriesSection categories={categories} loading={catLoading} />
       <FeaturedSection dresses={featured} loading={loading} />
-      <Experience360 />
+      <AnglesShowcase />
       <RentBuySection mode="rent" dresses={dresses} loading={loading} />
       <RentBuySection mode="sale" dresses={dresses} loading={loading} />
       <WhyRenad />

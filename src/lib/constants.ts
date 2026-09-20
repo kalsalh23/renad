@@ -1,4 +1,4 @@
-import type { AppointmentStatus, Availability, DisplayMode, DressStatus } from './types'
+import type { AppointmentStatus, Availability, DressStatus } from './types'
 
 export const BRAND = {
   nameAr: 'ريناد',
@@ -37,12 +37,6 @@ export const AVAILABILITY_META: Record<Availability, string> = {
   both: 'للإيجار والشراء',
 }
 
-export const DISPLAY_MODE_META: Record<DisplayMode, string> = {
-  images: 'صور فقط',
-  '360': 'عرض 360° فقط',
-  both: 'صور + 360°',
-}
-
 export const WEEK_DAYS = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة']
 
 export const MONTHS_AR = [
@@ -54,4 +48,3 @@ export const BOOKABLE_STATUSES: DressStatus[] = ['available', 'reserved']
 
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 export const MAX_IMAGE_SIZE_MB = 8
-export const MIN_FRAMES_FOR_360 = 8
