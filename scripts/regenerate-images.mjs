@@ -1,9 +1,8 @@
 /**
- * RENAD — إعادة توليد الصور بالذكاء الاصطناعي
- * - صور فساتين فقط (بدون أي إنسان) لكل فستان بعدة زوايا متطابقة (نفس البذرة + نفس الوصف)
- * - صورة Hero جديدة: مجموعة فساتين بألوان الهوية + اسم البراند مركّب عليها
- * - يحدّث dress_images و cover_image و hero_image في قاعدة البيانات
- * - يحذف إطارات 360° (أُلغيت الميزة)
+ * RENAD — إعادة توليد الصور بالذكاء الاصطناعي (v2)
+ * - فستان على مانيكان أنيق بوجه واقعي (بدون أي شخص حقيقي) — إصلاح التشوه
+ * - زوايا متطابقة لكل فستان (نفس البذرة + نفس الوصف)
+ * - Hero: اسم البراند بحجم متناسب مع الجوال
  *
  * الاستخدام:
  *   node scripts/regenerate-images.mjs --token=<sbp_...> --ref=<ref> --anon=<anon-key>
@@ -59,14 +58,12 @@ function curlGet(url) {
   return execFileSync('curl', ['-s', '-L', '--max-time', '150', url], { maxBuffer: 64 * 1024 * 1024 })
 }
 
-/** توليد صورة AI عبر Pollinations — نص إنجليزي صارم: فستان فقط بدون أي إنسان */
-async function generateAI(prompt, width, height, seed, cacheKey) {
+/** توليد صورة AI — الـprompt هنا كامل ومفصّل لضمان واقعية عالية */
+async function generateAI(fullPrompt, width, height, seed, cacheKey) {
   const cachePath = path.join(CACHE, cacheKey.replace(/[^\w.-]/g, '_') + '.jpg')
   if (existsSync(cachePath)) return readFileSync(cachePath)
 
-  const noHuman = 'headless mannequin display stand, dress only, no people, no model, no woman, no person, no face, no hands, no human body'
-  const style = 'luxury bridal boutique product photography, elegant soft ivory studio background, warm premium lighting, high detail, centered composition'
-  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(`${prompt}, ${noHuman}, ${style}`)}?width=${width}&height=${height}&nologo=true&seed=${seed}`
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(fullPrompt)}?width=${width}&height=${height}&nologo=true&seed=${seed}`
 
   for (let attempt = 1; attempt <= 4; attempt++) {
     try {
@@ -74,7 +71,12 @@ async function generateAI(prompt, width, height, seed, cacheKey) {
       if (!buf || buf.length < 8000) throw new Error(`too small (${buf?.length ?? 0}b)`)
       const meta = await sharp(buf).metadata()
       if (meta.width < 400) throw new Error('bad image')
-      const out = await sharp(buf).resize(width, height, { fit: 'cover' }).jpeg({ quality: 84, mozjpeg: true }).toBuffer()
+      // إزالة العلامة المائية أسفل يمين الصورة بقصّ الشريط السفلي (5%) ثم إعادة التأطير
+      const cropBottom = Math.round(meta.height * 0.05)
+      const cropped = await sharp(buf)
+        .extract({ left: 0, top: 0, width: meta.width, height: meta.height - cropBottom })
+        .toBuffer()
+      const out = await sharp(cropped).resize(width, height, { fit: 'cover' }).jpeg({ quality: 86, mozjpeg: true }).toBuffer()
       writeFileSync(cachePath, out)
       return out
     } catch (e) {
@@ -85,8 +87,13 @@ async function generateAI(prompt, width, height, seed, cacheKey) {
   }
 }
 
+// وصف المانيكان الواقعي — مانيكان صالة عرض كامل الجسم بوجه طبيعي، بدون أي شخص حقيقي
+const MANNEQUIN =
+  'displayed on an elegant full-body luxury boutique mannequin with a realistic sculpted face and smooth matte finish, standing gracefully, mannequin only, no real person, no human model, no woman, no photograph of a person'
+const SCENE =
+  'photorealistic professional product photography for a luxury bridal boutique, elegant soft ivory studio background with warm premium lighting, sharp focus, high detail, centered composition, 8k quality'
+
 /* ============== تعريفات الفساتين ============== */
-// نفس البذرة لكل فستان + نفس الوصف الأساسي مع تغيير الزاوية فقط → أقصى تطابق ممكن بين الزوايا
 const DRESSES = [
   { code: 'RENAD-024', seed: 2401, desc: 'elegant mermaid silhouette wedding gown with pearl beaded bodice and long flowing train, ivory white mikado and tulle fabric' },
   { code: 'RENAD-031', seed: 3102, desc: 'royal ball gown wedding dress with french lace bodice and crystal belt, dramatic long royal train, pure white organza' },
@@ -99,28 +106,31 @@ const DRESSES = [
 ]
 
 const ANGLES = [
-  { key: 'front',  phrase: 'front view of the gown' },
-  { key: 'side',   phrase: 'three-quarter side angle view of the same gown' },
-  { key: 'back',   phrase: 'back view of the same gown showing the train and back details' },
-  { key: 'detail', phrase: 'close-up detail shot of the same gown fabric texture and embroidery' },
+  { key: 'front',  phrase: 'front view of the gown on the mannequin' },
+  { key: 'side',   phrase: 'three-quarter side angle view of the same gown on the same mannequin' },
+  { key: 'back',   phrase: 'back view of the same gown on the same mannequin showing the train and back details' },
 ]
 
 /* ============== 1) صور الفساتين ============== */
 const urlsByDress = {}
-console.log('1) Generating dress images (4 angles each, dress only, no people)...')
+console.log('1) Generating dress images (realistic mannequin, 3 angles + detail)...')
 for (const d of DRESSES) {
   console.log(`  → ${d.code}`)
   urlsByDress[d.code] = []
-  for (let i = 0; i < ANGLES.length; i++) {
-    const a = ANGLES[i]
+  const shots = [
+    ...ANGLES.map((a) => ({ key: a.key, prompt: `${d.desc}, ${a.phrase}, ${MANNEQUIN}, ${SCENE}` })),
+    { key: 'detail', prompt: `macro close-up detail shot of ${d.desc}, fabric texture and embroidery details, draped on the mannequin, no person, ${SCENE}` },
+  ]
+  for (let i = 0; i < shots.length; i++) {
+    const s = shots[i]
     try {
-      const buf = await generateAI(`${d.desc}, ${a.phrase}`, 900, 1200, d.seed, `${d.code}-${a.key}`)
+      const buf = await generateAI(s.prompt, 900, 1200, d.seed, `v2-${d.code}-${s.key}`)
       const url = await uploadBuffer(buf, 'dress-images', `${d.code}/img-${i}.jpg`, 'image/jpeg')
       urlsByDress[d.code].push(url)
-      console.log(`    ✓ ${a.key}`)
+      console.log(`    ✓ ${s.key}`)
     } catch (e) {
-      console.log(`    ⚠ keeping existing image for ${a.key}: ${e.message}`)
-      urlsByDress[d.code].push(null) // نُبقي الصورة القديمة عبر عدم تحديث هذا الصف
+      console.log(`    ⚠ failed: ${s.key} — ${e.message}`)
+      urlsByDress[d.code].push(null)
     }
   }
 }
@@ -130,33 +140,36 @@ console.log('2) Generating hero image (brand + gown collection)...')
 let heroUrl = null
 try {
   const heroBuf = await generateAI(
-    'elegant display of five luxury bridal gowns in different colors — ivory, champagne, blush, soft gold and sage — standing in a row on headless mannequins inside a luxurious bright atelier with marble floor, editorial wide shot',
-    1800, 1200, 9425, 'hero-collection',
+    'elegant display of five luxury bridal gowns in different colors — ivory, champagne, blush, soft gold and sage — on graceful boutique mannequins standing in a row inside a luxurious bright atelier with marble floor, soft warm light, photorealistic editorial wide shot, no real person, high detail',
+    1800, 1200, 9425, 'v2-hero-collection',
   )
-  // تركيب اسم البراند على الصورة بخط أنيق
+  // اسم البراند بحجم متناسب مع شاشات الجوال (يبقى كاملًا داخل منطقة القص المركزي)
   const brandSvg = Buffer.from(`<svg width="1800" height="1200" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#211D18" stop-opacity="0.55"/>
-        <stop offset="0.22" stop-color="#211D18" stop-opacity="0"/>
+        <stop offset="0" stop-color="#211D18" stop-opacity="0.50"/>
+        <stop offset="0.20" stop-color="#211D18" stop-opacity="0"/>
         <stop offset="0.8" stop-color="#211D18" stop-opacity="0"/>
         <stop offset="1" stop-color="#211D18" stop-opacity="0.45"/>
       </linearGradient>
     </defs>
     <rect width="1800" height="1200" fill="url(#shade)"/>
-    <text x="900" y="200" font-family="Georgia, 'Times New Roman', serif" font-size="150" letter-spacing="46" fill="#E9D9B8" text-anchor="middle" font-weight="normal">RENAD</text>
-    <line x1="700" y1="248" x2="1100" y2="248" stroke="#CDB182" stroke-width="2"/>
-    <text x="900" y="300" font-family="Georgia, serif" font-size="40" letter-spacing="22" fill="#D8C5A0" text-anchor="middle">BRIDAL ATELIER</text>
+    <text x="900" y="170" font-family="Georgia, 'Times New Roman', serif" font-size="84" letter-spacing="18" fill="#E9D9B8" text-anchor="middle">RENAD</text>
+    <line x1="790" y1="206" x2="1010" y2="206" stroke="#CDB182" stroke-width="1.6"/>
+    <text x="900" y="248" font-family="Georgia, serif" font-size="26" letter-spacing="12" fill="#D8C5A0" text-anchor="middle">BRIDAL ATELIER</text>
   </svg>`)
   const heroFinal = await sharp(heroBuf).composite([{ input: brandSvg }]).jpeg({ quality: 86, mozjpeg: true }).toBuffer()
   heroUrl = await uploadBuffer(heroFinal, 'hero-images', 'hero/hero.jpg', 'image/jpeg')
-  console.log('  ✓ hero with brand wordmark')
+  console.log('  ✓ hero with compact brand wordmark')
 } catch (e) {
   console.log(`  ⚠ hero generation failed, keeping existing: ${e.message}`)
 }
 
 /* ============== 3) SQL ============== */
 console.log('3) Applying database updates...')
+function angleLabel(i) {
+  return ['من الأمام', 'من الجانب', 'من الخلف', 'تفاصيل القماش'][i] ?? ''
+}
 let sql = `begin;\n`
 sql += `delete from public.dress_360_frames;\n`
 
@@ -165,17 +178,12 @@ for (const d of DRESSES) {
   // لا نستبدل إلا إذا نجحت الزوايا الأربع كلها — لضمان صور مطابقة ومكتملة
   if (urls.every(Boolean)) {
     sql += `delete from public.dress_images where dress_id in (select id from public.dresses where code = '${d.code}');\n`
-    const rows = urls
-      .map((u, i) => `('${u}', ${i}, '${a2angle(i)}')`)
-      .join(', ')
+    const rows = urls.map((u, i) => `('${u}', ${i}, '${angleLabel(i)}')`).join(', ')
     sql += `insert into public.dress_images (dress_id, url, sort_order, alt)\n`
     sql += `select id, u.url, u.ord, u.alt from public.dresses, (values ${rows}) as u(url, ord, alt)\n`
     sql += `where public.dresses.code = '${d.code}';\n`
     sql += `update public.dresses set cover_image = '${urls[0]}' where code = '${d.code}';\n`
   }
-}
-function a2angle(i) {
-  return ['من الأمام', 'من الجانب', 'من الخلف', 'تفاصيل القماش'][i] ?? ''
 }
 
 if (heroUrl) {
@@ -184,4 +192,4 @@ if (heroUrl) {
 sql += `commit;\n`
 await runSql(sql)
 writeFileSync(path.join(__dirname, '..', 'supabase', '006_ai_images.sql'), sql)
-console.log('\n✅ AI IMAGE REGENERATION COMPLETE')
+console.log('\n✅ AI IMAGE REGENERATION (v2) COMPLETE')

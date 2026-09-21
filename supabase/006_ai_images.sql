@@ -1,5 +1,20 @@
 begin;
 delete from public.dress_360_frames;
+delete from public.dress_images where dress_id in (select id from public.dresses where code = 'RENAD-024');
+insert into public.dress_images (dress_id, url, sort_order, alt)
+select id, u.url, u.ord, u.alt from public.dresses, (values ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-024/img-0.jpg', 0, 'من الأمام'), ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-024/img-1.jpg', 1, 'من الجانب'), ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-024/img-2.jpg', 2, 'من الخلف'), ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-024/img-3.jpg', 3, 'تفاصيل القماش')) as u(url, ord, alt)
+where public.dresses.code = 'RENAD-024';
+update public.dresses set cover_image = 'https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-024/img-0.jpg' where code = 'RENAD-024';
+delete from public.dress_images where dress_id in (select id from public.dresses where code = 'RENAD-031');
+insert into public.dress_images (dress_id, url, sort_order, alt)
+select id, u.url, u.ord, u.alt from public.dresses, (values ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-031/img-0.jpg', 0, 'من الأمام'), ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-031/img-1.jpg', 1, 'من الجانب'), ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-031/img-2.jpg', 2, 'من الخلف'), ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-031/img-3.jpg', 3, 'تفاصيل القماش')) as u(url, ord, alt)
+where public.dresses.code = 'RENAD-031';
+update public.dresses set cover_image = 'https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-031/img-0.jpg' where code = 'RENAD-031';
+delete from public.dress_images where dress_id in (select id from public.dresses where code = 'RENAD-012');
+insert into public.dress_images (dress_id, url, sort_order, alt)
+select id, u.url, u.ord, u.alt from public.dresses, (values ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-012/img-0.jpg', 0, 'من الأمام'), ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-012/img-1.jpg', 1, 'من الجانب'), ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-012/img-2.jpg', 2, 'من الخلف'), ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-012/img-3.jpg', 3, 'تفاصيل القماش')) as u(url, ord, alt)
+where public.dresses.code = 'RENAD-012';
+update public.dresses set cover_image = 'https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-012/img-0.jpg' where code = 'RENAD-012';
 delete from public.dress_images where dress_id in (select id from public.dresses where code = 'RENAD-045');
 insert into public.dress_images (dress_id, url, sort_order, alt)
 select id, u.url, u.ord, u.alt from public.dresses, (values ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-045/img-0.jpg', 0, 'من الأمام'), ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-045/img-1.jpg', 1, 'من الجانب'), ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-045/img-2.jpg', 2, 'من الخلف'), ('https://kpnhtuwrdxfggvadnpkt.supabase.co/storage/v1/object/public/dress-images/RENAD-045/img-3.jpg', 3, 'تفاصيل القماش')) as u(url, ord, alt)
