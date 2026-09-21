@@ -21,4 +21,6 @@ export const supabase = createClient(
   },
 )
 
+export const SUPABASE_URL = supabaseUrl ?? 'https://placeholder.supabase.co'
+
 export const SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined) ?? window.location.origin

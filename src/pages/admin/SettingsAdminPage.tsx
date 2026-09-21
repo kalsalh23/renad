@@ -37,6 +37,19 @@ export default function SettingsAdminPage() {
 
   const set = <K extends keyof BusinessSettings>(k: K, v: BusinessSettings[K]) => setForm({ ...form, [k]: v })
 
+  /** تطبيق فوري للتغييرات على قاعدة البيانات + تحديث النموذج المحلي (لصور الهيرو/من نحن/المعرض) */
+  const instantSave = async (patch: Partial<BusinessSettings>, successMsg?: string) => {
+    setForm((f) => (f ? { ...f, ...patch } : f))
+    const { error } = await supabase.from('business_settings').update(patch).eq('id', 1)
+    if (error) {
+      toast('error', 'تعذّر التطبيق: ' + error.message)
+      return false
+    }
+    if (successMsg) toast('success', successMsg)
+    reload()
+    return true
+  }
+
   const save = async () => {
     setBusy(true)
     const blocked = blockedInput.split(',').map((s) => s.trim()).filter(Boolean)
@@ -48,12 +61,6 @@ export default function SettingsAdminPage() {
     if (error) return toast('error', 'تعذّر الحفظ: ' + error.message)
     toast('success', 'تم حفظ الإعدادات — ظهرت التغييرات في الموقع مباشرة')
     reload()
-  }
-
-  const uploadTo = async (file: File, bucket: string, folder: string, apply: (url: string) => void) => {
-    const res = await uploadImage(file, bucket, folder)
-    if (res.ok) apply(res.url!)
-    else toast('error', res.error ?? 'فشل الرفع')
   }
 
   return (
@@ -164,15 +171,24 @@ export default function SettingsAdminPage() {
             </div>
           </div>
           <div>
-            <label className="label">صورة الواجهة (Hero)</label>
+            <label className="label">صورة الواجهة (Hero) — تُطبَّق فورًا عند الرفع</label>
             <div className="flex items-center gap-4">
               <div className="h-24 w-40 overflow-hidden border border-champagne-light bg-cream">
                 {form.hero_image && <img src={form.hero_image} alt="" className="h-full w-full object-cover" />}
               </div>
-              <label className="btn-outline btn-sm cursor-pointer">
-                تغيير الصورة
-                <input type="file" accept="image/*" className="hidden"
-                  onChange={(e) => e.target.files?.[0] && uploadTo(e.target.files[0], 'hero-images', 'hero', (url) => set('hero_image', url))} />
+              <label className={cn('btn-outline btn-sm cursor-pointer', busy && 'pointer-events-none opacity-50')}>
+                {busy ? 'جارٍ الرفع...' : 'تغيير صورة الهيرو'}
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    e.target.value = ''
+                    if (!file) return
+                    setBusy(true)
+                    const res = await uploadImage(file, 'hero-images', 'hero')
+                    setBusy(false)
+                    if (res.ok) await instantSave({ hero_image: res.url! }, 'تم تحديث صورة الهيرو — ظهرت على الموقع فورًا')
+                    else toast('error', res.error ?? 'فشل الرفع')
+                  }} />
               </label>
             </div>
           </div>
@@ -201,15 +217,24 @@ export default function SettingsAdminPage() {
             </div>
           </div>
           <div>
-            <label className="label">صورة صفحة من نحن</label>
+            <label className="label">صورة صفحة من نحن — تُطبَّق فورًا عند الرفع</label>
             <div className="flex items-center gap-4">
               <div className="h-24 w-40 overflow-hidden border border-champagne-light bg-cream">
                 {form.about_image && <img src={form.about_image} alt="" className="h-full w-full object-cover" />}
               </div>
-              <label className="btn-outline btn-sm cursor-pointer">
-                تغيير الصورة
-                <input type="file" accept="image/*" className="hidden"
-                  onChange={(e) => e.target.files?.[0] && uploadTo(e.target.files[0], 'gallery-images', 'about', (url) => set('about_image', url))} />
+              <label className={cn('btn-outline btn-sm cursor-pointer', busy && 'pointer-events-none opacity-50')}>
+                {busy ? 'جارٍ الرفع...' : 'تغيير الصورة'}
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    e.target.value = ''
+                    if (!file) return
+                    setBusy(true)
+                    const res = await uploadImage(file, 'gallery-images', 'about')
+                    setBusy(false)
+                    if (res.ok) await instantSave({ about_image: res.url! }, 'تم تحديث صورة صفحة من نحن')
+                    else toast('error', res.error ?? 'فشل الرفع')
+                  }} />
               </label>
             </div>
           </div>
@@ -275,24 +300,29 @@ export default function SettingsAdminPage() {
                 <img src={src} alt="" className="h-full w-full object-cover" />
                 <button
                   type="button"
-                  onClick={() => set('showroom_images', form.showroom_images.filter((x) => x !== src))}
+                  onClick={() => instantSave({ showroom_images: form.showroom_images.filter((x) => x !== src) }, 'تم حذف الصورة')}
                   className="absolute inset-0 flex items-center justify-center bg-ink/60 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
                 >
                   حذف
                 </button>
               </div>
             ))}
-            <label className="flex aspect-square cursor-pointer flex-col items-center justify-center border border-dashed border-champagne text-beige transition-colors hover:border-gold hover:text-gold-dark">
+            <label className={cn('flex aspect-square cursor-pointer flex-col items-center justify-center border border-dashed border-champagne text-beige transition-colors hover:border-gold hover:text-gold-dark', busy && 'pointer-events-none opacity-50')}>
               <span className="text-2xl">+</span>
-              <span className="text-[10px]">إضافة صورة</span>
+              <span className="text-[10px]">{busy ? 'جارٍ الرفع...' : 'إضافة صورة'}</span>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 className="hidden"
-                onChange={(e) => {
+                onChange={async (e) => {
                   const file = e.target.files?.[0]
-                  if (file) uploadTo(file, 'gallery-images', 'showroom', (url) => set('showroom_images', [...(form.showroom_images ?? []), url]))
                   e.target.value = ''
+                  if (!file) return
+                  setBusy(true)
+                  const res = await uploadImage(file, 'gallery-images', 'showroom')
+                  setBusy(false)
+                  if (res.ok) await instantSave({ showroom_images: [...(form.showroom_images ?? []), res.url!] }, 'تمت إضافة الصورة وتطبيقها')
+                  else toast('error', res.error ?? 'فشل الرفع')
                 }}
               />
             </label>

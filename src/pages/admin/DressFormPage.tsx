@@ -1,13 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowRight, ImagePlus, Loader2, Trash2 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { supabase, SUPABASE_URL } from '@/lib/supabase'
 import type { Category, Dress, DressStatus, Availability } from '@/lib/types'
 import { AVAILABILITY_META, DRESS_STATUS_META } from '@/lib/constants'
 import { cn, slugifyCode } from '@/lib/utils'
 import { uploadImage, validateImageFile } from '@/lib/upload'
 import { useToast } from '@/context/ToastContext'
 import { useSEO } from '@/hooks/useSEO'
+
+interface ImageItem {
+  id?: string
+  url: string
+  /** مسار ملف مؤقت لفستان جديد لم يُحفظ بعد — يُنقل لمجلد الفستان عند الحفظ */
+  pendingPath?: string
+}
 
 interface FormState {
   code: string
@@ -60,10 +67,16 @@ export default function DressFormPage() {
 
   const [form, setForm] = useState<FormState>(EMPTY)
   const [categories, setCategories] = useState<Category[]>([])
-  const [images, setImages] = useState<{ id?: string; url: string }[]>([])
+  const [images, setImages] = useState<ImageItem[]>([])
   const [coverPreview, setCoverPreview] = useState('')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(isEdit)
+  // مجلد مؤقت للفستان الجديد قبل الحفظ الأول — تُرفع صوره هناك ثم تُنقل عند الحفظ
+  const pendingRef = useRef(
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  )
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
@@ -122,23 +135,43 @@ export default function DressFormPage() {
     set('cover_image', res.url!)
   }
 
-  /* ---------- رفع صور المعرض ---------- */
+  /* ---------- رفع صور المعرض — يعمل حتى قبل الحفظ الأول (مجلد مؤقت + نقل تلقائي) ---------- */
   const onImagesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
     e.target.value = ''
-    if (!files.length || !id) return toast('error', 'احفظ الفستان أولًا قبل رفع صور المعرض')
+    if (!files.length) return
     setBusy(true)
+    let okCount = 0
     for (const file of files) {
-      const res = await uploadImage(file, 'dress-images', id)
-      if (res.ok) setImages((prev) => [...prev, { url: res.url! }])
-      else toast('error', res.error ?? '')
+      const folder = id ? id : `pending/${pendingRef.current}`
+      const res = await uploadImage(file, 'dress-images', folder)
+      if (res.ok) {
+        okCount++
+        setImages((prev) => [
+          ...prev,
+          id ? { url: res.url! } : { url: res.url!, pendingPath: `${folder}/${res.url!.split('/').pop()}` },
+        ])
+      } else {
+        toast('error', res.error ?? 'فشل الرفع')
+      }
     }
     setBusy(false)
+    if (okCount) toast('success', `تم رفع ${okCount} صورة`)
   }
 
-  const removeImage = async (img: { id?: string; url: string }) => {
+  const removeImage = async (img: ImageItem) => {
     setImages((prev) => prev.filter((x) => x !== img))
-    if (img.id) await supabase.from('dress_images').delete().eq('id', img.id)
+    try {
+      if (img.id) await supabase.from('dress_images').delete().eq('id', img.id)
+      if (img.pendingPath) {
+        await supabase.storage.from('dress-images').remove([img.pendingPath])
+      } else if (!img.id) {
+        const storagePath = img.url.split('/object/public/dress-images/')[1]
+        if (storagePath) await supabase.storage.from('dress-images').remove([decodeURIComponent(storagePath)])
+      }
+    } catch {
+      // الحذف من التخزين أفضل-effort — الصف في قاعدة البيانات هو الأهم
+    }
   }
 
   /* ---------- الحفظ ---------- */
@@ -186,12 +219,30 @@ export default function DressFormPage() {
       dressId = data!.id as string
     }
 
-    // مزامنة صور المعرض الجديدة
+    // مزامنة صور المعرض: نقل المؤقتة إلى مجلد الفستان ثم حفظ الصفوف
     if (dressId) {
+      for (const img of images) {
+        if (!img.pendingPath) continue
+        const filename = img.pendingPath.split('/').pop() ?? `img-${Date.now()}.jpg`
+        const newPath = `${dressId}/${filename}`
+        const { error: moveErr } = await supabase.storage.from('dress-images').move(img.pendingPath, newPath)
+        if (!moveErr) {
+          img.url = `${SUPABASE_URL}/storage/v1/object/public/dress-images/${newPath}`
+          delete img.pendingPath
+        } else {
+          // إن تعذّر النقل نُبقي الرابط المؤقت — الصورة صالحة ومعروضة
+          console.warn('move failed:', moveErr.message)
+        }
+      }
       const newImages = images.filter((i) => !i.id)
       if (newImages.length) {
         await supabase.from('dress_images').insert(
-          newImages.map((i, idx) => ({ dress_id: dressId, url: i.url, sort_order: images.indexOf(i) + idx })),
+          newImages.map((img, i) => ({
+            dress_id: dressId,
+            url: img.url,
+            sort_order: images.indexOf(img),
+            alt: `${i + 1}`,
+          })),
         )
       }
     }
@@ -339,9 +390,9 @@ export default function DressFormPage() {
           </div>
         </div>
 
-        {/* صور المعرض — زوايا متعددة لنفس الفستان */}
+        {/* صور المعرض — زوايا متعددة لنفس الفستان (يمكن الرفع قبل الحفظ) */}
         <div>
-          <label className="label">صور المعرض — زوايا متعددة لنفس الفستان {id ? '' : '(بعد الحفظ الأول)'}</label>
+          <label className="label">صور المعرض — زوايا متعددة لنفس الفستان</label>
           <div className="flex flex-wrap gap-3">
             {images.map((img, i) => (
               <div key={img.id ?? img.url} className="group relative h-24 w-[72px] overflow-hidden border border-champagne-light">
@@ -353,13 +404,11 @@ export default function DressFormPage() {
                 <span className="absolute bottom-0 start-0 bg-ink/60 px-1 text-[9px] text-white">{i + 1}</span>
               </div>
             ))}
-            {id && (
-              <label className="flex h-24 w-[72px] cursor-pointer flex-col items-center justify-center gap-1 border border-dashed border-champagne text-beige transition-colors hover:border-gold hover:text-gold-dark">
-                <ImagePlus className="h-5 w-5" />
-                <span className="text-[9px]">إضافة</span>
-                <input type="file" multiple accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onImagesChange} />
-              </label>
-            )}
+            <label className={cn('flex h-24 w-[72px] cursor-pointer flex-col items-center justify-center gap-1 border border-dashed border-champagne text-beige transition-colors hover:border-gold hover:text-gold-dark', busy && 'pointer-events-none opacity-50')}>
+              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}
+              <span className="text-[9px]">إضافة</span>
+              <input type="file" multiple accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onImagesChange} />
+            </label>
           </div>
           <p className="mt-2 text-[11px] leading-5 text-beige">
             أضيفي صورًا لنفس الفستان من زوايا مختلفة بالترتيب: الأمام، الجانب، الخلف، تفاصيل القماش —
