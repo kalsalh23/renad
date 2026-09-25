@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Mail, Lock, User as UserIcon } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
@@ -15,6 +15,8 @@ export default function AuthPage() {
   const { signIn, signUp } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
+  const location = useLocation()
+  const returnTo = (location.state as { from?: string } | null)?.from ?? '/account'
   useSEO({ title: 'تسجيل الدخول' })
 
   const submit = async (e: React.FormEvent) => {
@@ -26,7 +28,7 @@ export default function AuthPage() {
       if (error) toast('error', 'بيانات الدخول غير صحيحة — تحققي من البريد وكلمة المرور.')
       else {
         toast('success', 'أهلًا بكِ مجددًا 🤍')
-        navigate('/account')
+        navigate(returnTo)
       }
     } else {
       if (password.length < 6) {
@@ -45,7 +47,7 @@ export default function AuthPage() {
         setMode('login')
       } else {
         toast('success', 'أهلًا بكِ في ريناد 🤍')
-        navigate('/account')
+        navigate(returnTo)
       }
     }
   }
@@ -59,7 +61,7 @@ export default function AuthPage() {
             {mode === 'login' ? 'تسجيل الدخول' : 'حساب جديد'}
           </h1>
           <p className="mt-3 text-sm leading-7 text-smoke">
-            التصفح والحجز متاحان بدون حساب — الحساب يتيح لكِ متابعة حجوزاتكِ ومفضلتكِ.
+            التصفح متاح بدون حساب — الحساب مطلوب للحجز، ويتيح متابعة حجوزاتكِ ومفضلتكِ ونقاطكِ.
           </p>
         </div>
 

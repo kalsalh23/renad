@@ -35,6 +35,15 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
+/** يتطلب حسابًا — يحفظ الوجهة المطلوبة للعودة إليها بعد الدخول */
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth()
+  const location = useLocation()
+  if (loading) return <PageLoader />
+  if (!user) return <Navigate to="/auth" state={{ from: location.pathname + location.search }} replace />
+  return <>{children}</>
+}
+
 export default function App() {
   return (
     <Routes>
@@ -45,7 +54,7 @@ export default function App() {
         <Route path="dresses/:slug" element={<DressDetailsPage />} />
         <Route path="rent" element={<ListingPage mode="rent" />} />
         <Route path="buy" element={<ListingPage mode="sale" />} />
-        <Route path="book" element={<BookPage />} />
+        <Route path="book" element={<RequireAuth><BookPage /></RequireAuth>} />
         <Route path="favorites" element={<FavoritesPage />} />
         <Route path="auth" element={<AuthPage />} />
         <Route path="account" element={<AccountPage />} />

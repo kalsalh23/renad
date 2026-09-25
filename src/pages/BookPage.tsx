@@ -7,7 +7,7 @@ import { useSettings } from '@/context/SettingsContext'
 import { useToast } from '@/context/ToastContext'
 import { useDresses } from '@/hooks/useData'
 import { useSEO } from '@/hooks/useSEO'
-import { isValidEmail, isValidPhone, timeSlots, todayISO, waLink, weekDayIndex } from '@/lib/utils'
+import { isValidPhone, timeSlots, todayISO, waLink, weekDayIndex } from '@/lib/utils'
 import type { WorkingHour } from '@/lib/types'
 
 export default function BookPage() {
@@ -17,7 +17,7 @@ export default function BookPage() {
   const { settings } = useSettings()
   const { toast } = useToast()
   const { dresses } = useDresses()
-  useSEO({ title: 'احجزي موعد تجربة', description: 'احجزي موعد تجربة فساتين في معرض ريناد — اخترا التاريخ والوقت المناسب لكِ.' })
+  useSEO({ title: 'احجزي موعد تجربة', description: 'احجزي موعد تجربة فساتين في معرض ريناد.' })
 
   const prefillSlug = params.get('dress')
   const prefillDress = dresses.find((d) => d.slug === prefillSlug)
@@ -25,7 +25,6 @@ export default function BookPage() {
   const [form, setForm] = useState({
     customer_name: '',
     phone: '',
-    email: '',
     dress_id: '',
     appointment_date: '',
     appointment_time: '',
@@ -41,7 +40,6 @@ export default function BookPage() {
         ...f,
         customer_name: f.customer_name || profile.full_name || '',
         phone: f.phone || profile.phone || '',
-        email: f.email || profile.email || '',
       }))
     }
   }, [profile])
@@ -71,17 +69,12 @@ export default function BookPage() {
       toast('error', 'يرجى اختيار تاريخ ووقت التجربة.')
       return
     }
-    if (form.email && !isValidEmail(form.email)) {
-      toast('error', 'صيغة البريد الإلكتروني غير صحيحة.')
-      return
-    }
     setSubmitting(true)
     const chosenDress = dresses.find((d) => d.id === form.dress_id)
     const { error } = await supabase.from('appointments').insert({
       user_id: user?.id ?? null,
       customer_name: form.customer_name.trim(),
       phone: form.phone.trim(),
-      email: form.email.trim() || null,
       dress_id: form.dress_id || null,
       dress_code: chosenDress?.code ?? null,
       appointment_date: form.appointment_date,
@@ -91,9 +84,7 @@ export default function BookPage() {
     })
     setSubmitting(false)
     if (error) {
-      toast('error', error.message === 'تم تجاوز الحد المسموح من الطلبات، يرجى المحاولة لاحقًا'
-        ? error.message
-        : 'تعذّر إرسال الطلب — تحققي من البيانات وحاولي مجددًا.')
+      toast('error', 'تعذّر إرسال الطلب — تحققي من البيانات وحاولي مجددًا.')
       return
     }
     setDone({ date: form.appointment_date, time: form.appointment_time, code: chosenDress?.code ?? null })
@@ -111,6 +102,7 @@ export default function BookPage() {
             شكرًا {form.customer_name}! استلمنا طلب موعد تجربة بتاريخ <b>{done.date}</b> الساعة <b>{done.time}</b>
             {done.code && <> للفستان <b className="font-latin">{done.code}</b></>}، وسنعلمكِ بالتأكيد في أقرب وقت.
           </p>
+          <p className="mt-2 text-xs text-beige">ستجدِ الحجز في صفحة «حجوزاتي» بحسابكِ وتصلكِ إشعارات حالته.</p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             {settings.whatsapp_number && (
               <a
@@ -123,7 +115,7 @@ export default function BookPage() {
                 تأكيد أسرع عبر واتساب
               </a>
             )}
-            <button onClick={() => navigate('/')} className="btn-primary">العودة للرئيسية</button>
+            <button onClick={() => navigate('/account?tab=bookings')} className="btn-primary">حجوزاتي</button>
           </div>
         </div>
       </div>
@@ -168,12 +160,6 @@ export default function BookPage() {
               <input id="bk-phone" required dir="ltr" className="input text-right" value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="09xx xxx xxx" />
             </div>
-          </div>
-
-          <div>
-            <label className="label" htmlFor="bk-email">البريد الإلكتروني (اختياري)</label>
-            <input id="bk-email" type="email" dir="ltr" className="input text-right" value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email@example.com" />
           </div>
 
           <div>
@@ -231,8 +217,8 @@ export default function BookPage() {
             {submitting ? 'جارٍ الإرسال...' : 'إرسال طلب الحجز'}
           </button>
           <p className="text-center text-[11px] leading-5 text-beige">
-            بإرسالكِ الطلب ستتواصل معكِ إدارة المعرض لتأكيد الموعد. التصفح والحجز لا يتطلبان حسابًا،
-            لكن <Link to="/auth" className="text-gold-dark underline underline-offset-4">إنشاء حساب</Link> يتيحكِ متابعة حجوزاتكِ.
+            بإرسالكِ الطلب ستتواصل معكِ إدارة المعرض لتأكيد الموعد، وسيظهر الحجز تلقائيًا
+            في <Link to="/account?tab=bookings" className="text-gold-dark underline underline-offset-4">حجوزاتي</Link> مع إشعارات حالته.
           </p>
         </form>
       </div>
