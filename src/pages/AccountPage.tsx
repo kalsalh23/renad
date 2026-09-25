@@ -1,8 +1,9 @@
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
-import { CalendarDays, Heart, Bell, LogOut, User } from 'lucide-react'
+import { CalendarDays, Gift, Heart, Bell, LogOut, User, Sparkles } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useFavorites } from '@/context/FavoritesContext'
 import { useAppointments, useDresses, useNotifications } from '@/hooks/useData'
+import { usePointsBalance, POINTS_PER_DRESS } from '@/hooks/usePoints'
 import { useSEO } from '@/hooks/useSEO'
 import { APPOINTMENT_STATUS_META } from '@/lib/constants'
 import { fmtDateAr, fmtDateTimeAr } from '@/lib/utils'
@@ -14,6 +15,7 @@ export default function AccountPage() {
   const { user, profile, loading: authLoading, signOut } = useAuth()
   const [params, setParams] = useSearchParams()
   const tab = params.get('tab') ?? 'bookings'
+  const { balance } = usePointsBalance(user?.id)
   useSEO({ title: 'حسابي' })
 
   if (authLoading) return <PageLoader />
@@ -37,6 +39,23 @@ export default function AccountPage() {
           <LogOut className="h-4 w-4" />
           تسجيل الخروج
         </button>
+      </div>
+
+      {/* بطاقة نقاط الولاء */}
+      <div className="relative mt-8 overflow-hidden rounded-sm bg-ink p-7 text-ivory">
+        <div className="absolute inset-0 opacity-25 [background:radial-gradient(ellipse_at_top,rgba(174,139,79,0.5),transparent_55%)]" />
+        <div className="relative z-10 flex items-center justify-between gap-4">
+          <div>
+            <p className="eyebrow !text-gold-light">RENAD REWARDS</p>
+            <p className="mt-2 font-display text-5xl text-gold-light">{balance}</p>
+            <p className="mt-1 text-xs text-ivory/60">نقطة ولاء في رصيدكِ</p>
+          </div>
+          <Gift className="h-12 w-12 text-gold-light/70" />
+        </div>
+        <p className="relative z-10 mt-4 border-t border-ivory/10 pt-3 text-[11px] leading-5 text-ivory/55">
+          <Sparkles className="me-1 inline h-3.5 w-3.5 text-gold-light" />
+          {POINTS_PER_DRESS} نقطة لكل فستان بعد تأكيد حجزكِ — اجمعيها واستبدليها بخصم في المعرض أو فستان مجاني.
+        </p>
       </div>
 
       {/* التبويبات */}

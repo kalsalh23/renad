@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Bell, CalendarDays, ExternalLink, LayoutDashboard, LogOut, Settings, Sparkles } from 'lucide-react'
+import { Bell, CalendarDays, ExternalLink, Gift, LayoutDashboard, LogOut, Settings, Sparkles } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useNotifications } from '@/hooks/useData'
 import { useSEO } from '@/hooks/useSEO'
@@ -10,6 +10,7 @@ const LINKS = [
   { to: '/admin', label: 'الرئيسية', icon: LayoutDashboard, end: true },
   { to: '/admin/dresses', label: 'الفساتين', icon: Sparkles },
   { to: '/admin/appointments', label: 'المواعيد', icon: CalendarDays },
+  { to: '/admin/points', label: 'نقاط الولاء', icon: Gift },
   { to: '/admin/notifications', label: 'الإشعارات', icon: Bell },
   { to: '/admin/settings', label: 'الإعدادات والمحتوى', icon: Settings },
 ]

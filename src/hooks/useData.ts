@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { Appointment, BusinessSettings, Category, Dress, DressImage, Notification } from '@/lib/types'
+import type { Appointment, BusinessSettings, Category, Dress, DressImage, LoyaltyBalance, Notification, PointTransaction } from '@/lib/types'
 
 /* ---------------- التصنيفات ---------------- */
 export function useCategories() {
@@ -189,4 +189,34 @@ export function useBusinessSettingsFull() {
   }, [load])
 
   return { settings, loading, reload: load }
+}
+
+/* ---------------- النقاط والولاء (لوحة التحكم) ---------------- */
+export function useLoyalty() {
+  const [balances, setBalances] = useState<LoyaltyBalance[]>([])
+  const [transactions, setTransactions] = useState<PointTransaction[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    const [balRes, txRes] = await Promise.all([
+      supabase
+        .from('loyalty_points')
+        .select('user_id, points, profile:profiles(full_name, email, phone)')
+        .order('points', { ascending: false }),
+      supabase
+        .from('point_transactions')
+        .select('*, profile:profiles(full_name, email)')
+        .order('created_at', { ascending: false })
+        .limit(100),
+    ])
+    setBalances((balRes.data as unknown as LoyaltyBalance[]) ?? [])
+    setTransactions((txRes.data as unknown as PointTransaction[]) ?? [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  return { balances, transactions, loading, reload: load }
 }

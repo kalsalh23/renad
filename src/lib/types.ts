@@ -122,7 +122,6 @@ export interface BusinessSettings {
   about_image: string | null
   about_vision: string
   about_mission: string
-  about_values: { title: string; body: string }[]
   showroom_images: string[]
   instagram_handle: string | null
   updated_at: string
@@ -138,4 +137,20 @@ export interface Notification {
   appointment_id: string | null
   is_read: boolean
   created_at: string
+}
+
+export interface LoyaltyBalance {
+  user_id: string
+  points: number
+  profile?: { full_name: string | null; email: string | null; phone: string | null }
+}
+
+export interface PointTransaction {
+  id: string
+  user_id: string
+  appointment_id: string | null
+  amount: number
+  reason: string
+  created_at: string
+  profile?: { full_name: string | null; email: string | null }
 }

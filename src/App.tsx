@@ -21,6 +21,7 @@ import DashboardPage from '@/pages/admin/DashboardPage'
 import DressesAdminPage from '@/pages/admin/DressesAdminPage'
 import DressFormPage from '@/pages/admin/DressFormPage'
 import AppointmentsAdminPage from '@/pages/admin/AppointmentsAdminPage'
+import PointsAdminPage from '@/pages/admin/PointsAdminPage'
 import SettingsAdminPage from '@/pages/admin/SettingsAdminPage'
 import NotificationsAdminPage from '@/pages/admin/NotificationsAdminPage'
 
@@ -68,6 +69,7 @@ export default function App() {
         <Route path="dresses/new" element={<DressFormPage />} />
         <Route path="dresses/:id" element={<DressFormPage />} />
         <Route path="appointments" element={<AppointmentsAdminPage />} />
+        <Route path="points" element={<PointsAdminPage />} />
         <Route path="settings" element={<SettingsAdminPage />} />
         <Route path="notifications" element={<NotificationsAdminPage />} />
       </Route>

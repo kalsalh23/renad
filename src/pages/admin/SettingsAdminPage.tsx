@@ -28,7 +28,7 @@ export default function SettingsAdminPage() {
 
   useEffect(() => {
     if (settings && !form) {
-      setForm({ ...settings, about_values: settings.about_values ?? [] })
+      setForm({ ...settings })
       setBlockedInput((settings.blocked_dates ?? []).join(', '))
     }
   }, [settings, form])
@@ -53,9 +53,11 @@ export default function SettingsAdminPage() {
   const save = async () => {
     setBusy(true)
     const blocked = blockedInput.split(',').map((s) => s.trim()).filter(Boolean)
+    // استبعاد مفاتيح القراءة فقط التي تُفشل التعديل إن أُرسلت (id/updated_at)
+    const { id: _id, updated_at: _u, ...payload } = form
     const { error } = await supabase
       .from('business_settings')
-      .update({ ...form, blocked_dates: blocked, id: undefined, updated_at: undefined })
+      .update({ ...payload, blocked_dates: blocked })
       .eq('id', 1)
     setBusy(false)
     if (error) return toast('error', 'تعذّر الحفظ: ' + error.message)

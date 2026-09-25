@@ -47,4 +47,5 @@ export const MONTHS_AR = [
 export const BOOKABLE_STATUSES: DressStatus[] = ['available', 'reserved']
 
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
-export const MAX_IMAGE_SIZE_MB = 8
+// الحد الأعلى للملف الخام — الصور الكبيرة تُضغط تلقائيًا في المتصفح قبل الرفع
+export const MAX_IMAGE_SIZE_MB = 12
