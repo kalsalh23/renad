@@ -4,6 +4,7 @@ import { Header } from './Header'
 import { Footer } from './Footer'
 import { MobileBottomNav } from './MobileBottomNav'
 import { WhatsAppFloat } from './WhatsAppFloat'
+import { InstallApp } from './InstallApp'
 
 export function Layout() {
   const { pathname } = useLocation()
@@ -21,6 +22,7 @@ export function Layout() {
       <Footer />
       <MobileBottomNav />
       <WhatsAppFloat />
+      <InstallApp />
     </div>
   )
 }
